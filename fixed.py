@@ -194,7 +194,7 @@ def transaction_history(account_number):
 def search_transaction():
     print("Search by typing:")
     print(" - Full or partial account number (e.g., 10001)")
-    print(" - A date (e.g., 2025-05-06)")
+    print(" - A date (e.g., 2025-05-06) & A time (e.g.,09:30)")
     print(" - Action type: 'deposit' or 'withdraw'")
     
     keyword = input("Enter your search keyword: ").lower()
@@ -274,17 +274,31 @@ def user_menu(username):
 
     while True:
         print("\n=== User Menu ===")
-        print("1. Deposit\n2. Withdraw\n3. Check Balance\n4. Transaction History\n5. Search Transactions\n6. Logout")
+        print("1. Deposit")
+        print("2. Withdraw")
+        print("3. Check Balance")
+        print("4. Transaction History")
+        print("5. Logout")
+        print("6. Exit")
         choice = input("Choice: ")
-        if choice == '1': deposit(acc_no)
-        elif choice == '2': withdraw(acc_no)
-        elif choice == '3': check_balance(acc_no)
-        elif choice == '4': transaction_history(acc_no)
-        elif choice == '5': search_transaction()
-        elif choice == '6': break
-        else: print("❌ Invalid option.")
+        
+        if choice == '1':
+            deposit(acc_no)
+        elif choice == '2':
+            withdraw(acc_no)
+        elif choice == '3':
+            check_balance(acc_no)
+        elif choice == '4':
+            transaction_history(acc_no)
+        elif choice == '5':
+            break 
+        elif choice == '6':
+            print("👋 Exiting the application. Goodbye!")
+            exit() 
+        else:
+            print("❌ Invalid option.")
 
-# Entry Point
+
 if __name__ == "__main__":
     while True:
         username, role = login()
