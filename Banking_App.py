@@ -191,22 +191,44 @@ def transaction_history(account_number):
         if acc_no == account_number:
             print(f"{dt} || {act} || Last: {last_b} || Current: {cur_b}")
 
-def search_transaction():
+def search_details():
     print("Search by typing:")
     print(" - Full or partial account number (e.g., 10001)")
-    print(" - A date (e.g., 2025-05-06) & A time (e.g.,09:30)")
+    print(" - A date (e.g., 2025-05-06) & A time (e.g., 09:30)")
     print(" - Action type: 'deposit' or 'withdraw'")
     
     keyword = input("Enter your search keyword: ").lower()
     transactions = read_file(TRANSACTION_FILE)
+    accounts = read_file(CUSTOMER_FILE)
     found = False
-    
+
+    matched_accounts = []
+
+    # First, find account details if keyword matches account number
+    for acc in accounts:
+        cust_id, uname, acc_number, nic, phone = acc.strip().split('||')
+        if keyword in acc_number.lower():
+            matched_accounts.append(acc_number)
+            print("\n--- Account Details ---")
+            print(f"Customer ID   : {cust_id}")
+            print(f"Username      : {uname}")
+            print(f"Account Number: {acc_number}")
+            print(f"NIC No        : {nic}")
+            print(f"Phone No      : {phone}")
+            print("\n--- Transaction History ---")
+
+    # Now display transaction history
     for tx in transactions:
         acc_no, dt, act, last_b, cur_b = tx.strip().split('||')
-        if keyword in acc_no.lower() or keyword in dt.lower() or keyword in act.lower():
+        if (keyword in acc_no.lower() or keyword in dt.lower() or keyword in act.lower()):
+            # If keyword matched other than acc_no, still show transaction
             print(f"{dt} || {act} || Account: {acc_no} || Last: {last_b} || Current: {cur_b}")
             found = True
-    
+        elif acc_no in matched_accounts:
+            # Show all transactions for matched account
+            print(f"{dt} || {act} || Account: {acc_no} || Last: {last_b} || Current: {cur_b}")
+            found = True
+
     if not found:
         print("❌ No transactions matched your search.")
 
@@ -246,7 +268,7 @@ def admin_menu():
         print("5. Transaction History")
         print("6. Manage Accounts")
         print("7. View All Accounts")
-        print("8. Search Transactions")
+        print("8. Search Details")
         print("9. Logout")
         choice = input("Choice: ")
         if choice == '1': create_customer()
@@ -256,7 +278,7 @@ def admin_menu():
         elif choice == '5': transaction_history(input("Enter account number: "))
         elif choice == '6': manage_accounts()
         elif choice == '7': view_all_accounts()
-        elif choice == '8': search_transaction()
+        elif choice == '8': search_details()
         elif choice == '9': break
         else: print("❌ Invalid option.")
 
