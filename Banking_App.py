@@ -111,7 +111,7 @@ def create_customer():
 
     write_to_file(ACCOUNT_FILE, f"{account_number}||{username}||{hash_password(password)}||{balance}")
     write_to_file(CUSTOMER_FILE, f"{customer_id}||{username}||{account_number}||{nic}||{contact}")
-    write_to_file(USER_FILE, f"{user_id}||{username}||user||{hash_password(password)}")
+    write_to_file(USER_FILE, f"{user_id}||{account_number}||{username}||user||{hash_password(password)}")
 
     print(f"✅ Successful Customer created with Account Number: {account_number}|| User ID: {user_id}|| Customer ID: {customer_id}")
 
@@ -121,7 +121,7 @@ def find_account(account_number):
         acc_no, uname, passwd, bal = acc.split('||')
         if acc_no == account_number:
             return acc_no, uname, passwd, float(bal)
-    return None
+    return None  
 
 def update_account(account_number, new_balance):
     accounts = read_file(ACCOUNT_FILE)
@@ -165,7 +165,7 @@ def withdraw(account_number):
     try:
         amount = float(input("Enter amount to withdraw: "))
         if amount <= 0 or amount > acc[3]:
-            print("❌ Invalid or insufficient amount.")
+            print("❌ Insufficient amount.")
             return
     except:
         print("❌ Invalid input.")
@@ -203,8 +203,6 @@ def search_details():
     found = False
 
     matched_accounts = []
-
-    # First, find account details if keyword matches account number
     for acc in accounts:
         cust_id, uname, acc_number, nic, phone = acc.strip().split('||')
         if keyword in acc_number.lower():
@@ -217,15 +215,12 @@ def search_details():
             print(f"Phone No      : {phone}")
             print("\n--- Transaction History ---")
 
-    # Now display transaction history
     for tx in transactions:
         acc_no, dt, act, last_b, cur_b = tx.strip().split('||')
         if (keyword in acc_no.lower() or keyword in dt.lower() or keyword in act.lower()):
-            # If keyword matched other than acc_no, still show transaction
             print(f"{dt} || {act} || Account: {acc_no} || Last: {last_b} || Current: {cur_b}")
             found = True
         elif acc_no in matched_accounts:
-            # Show all transactions for matched account
             print(f"{dt} || {act} || Account: {acc_no} || Last: {last_b} || Current: {cur_b}")
             found = True
 
@@ -242,9 +237,16 @@ def manage_accounts():
     choice = input("Choice: ")
     if choice == '1':
         acc_no = input("Enter account number to delete: ")
-        accounts = [acc for acc in read_file(ACCOUNT_FILE) if not acc.startswith(acc_no + '||')]
-        save_all_lines(ACCOUNT_FILE, accounts)
-        print("✅ Successful Account deleted .")
+         
+        files_to_clean = [ACCOUNT_FILE, CUSTOMER_FILE, USER_FILE, TRANSACTION_FILE]
+
+        for file in files_to_clean:
+            lines = read_file(file)
+            updated_lines = [line for line in lines if acc_no not in line]
+            save_all_lines(file, updated_lines)
+        print("✅ Successfully deleted account and all associated data.")
+
+
     elif choice == '2':
         acc_no = input("Enter account number to update: ")
         new_name = input("Enter new username: ")
@@ -315,7 +317,7 @@ def user_menu(username):
         elif choice == '5':
             break 
         elif choice == '6':
-            print("👋 Exiting the application. Goodbye!")
+            print("👋 Thank you , Exiting the application. Goodbye!")
             exit() 
         else:
             print("❌ Invalid option.")
