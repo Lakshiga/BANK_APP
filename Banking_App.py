@@ -1,4 +1,5 @@
 import os
+import re
 import random
 from datetime import datetime
 from getpass import getpass
@@ -78,22 +79,42 @@ def login():
     print("❌ Invalid credentials.")
     return login()
 
+def is_valid_password(password):
+    return (
+        len(password) >= 8 and
+        re.search(r'[A-Z]', password) and
+        re.search(r'[a-z]', password) and
+        re.search(r'[0-9]', password) and
+        re.search(r'[\W_]', password) 
+    )
+
+def is_valid_nic(nic):
+    return re.fullmatch(r'\d{12}', nic)
+
+def is_valid_phone(phone):
+    return re.fullmatch(r'07\d{8}', phone)
+
+
 def create_customer():
     print("=== Create Customer Account ===")
- 
+
     users = read_file(USER_FILE)
     existing_usernames = set()
     for user in users:
         parts = user.strip().split('||')
         if len(parts) >= 2:
-            existing_usernames.add(parts[1])  
+            existing_usernames.add(parts[1])
 
     username = input("Enter your username: ")
     if username in existing_usernames:
         print("❌ Username already exists.")
         return
 
-    password = pwinput.pwinput("Set password: ")
+    password = pwinput.pwinput("Set password (At least 8 characters with uppercase, lowercase, number, symbol): ")
+    if not is_valid_password(password):
+        print("❌ Invalid password. It must include uppercase, lowercase, number, and special character.")
+        return
+
     try:
         balance = float(input("Enter initial balance (>= 0): "))
         if balance < 0:
@@ -102,8 +123,15 @@ def create_customer():
         print("❌ Invalid balance.")
         return
 
-    nic = input("Enter NIC No: ")
-    contact = input("Enter Contact No: ")
+    nic = input("Enter NIC No (12 digits): ")
+    if not is_valid_nic(nic):
+        print("❌ Invalid NIC number. Must be exactly 12 digits.")
+        return
+
+    contact = input("Enter Contact No (10-digit, starts with 07): ")
+    if not is_valid_phone(contact):
+        print("❌ Invalid phone number. Must start with '07' and be 10 digits.")
+        return
 
     account_number = generate_account_number()
     user_id = generate_user_id()
@@ -113,7 +141,7 @@ def create_customer():
     write_to_file(CUSTOMER_FILE, f"{customer_id}||{username}||{account_number}||{nic}||{contact}")
     write_to_file(USER_FILE, f"{user_id}||{account_number}||{username}||user||{hash_password(password)}")
 
-    print(f"✅ Successful Customer created with Account Number: {account_number}|| User ID: {user_id}|| Customer ID: {customer_id}")
+    print(f"✅ Successful Customer created with Account Number: {account_number} || User ID: {user_id} || Customer ID: {customer_id}")
 
 def find_account(account_number):
     accounts = read_file(ACCOUNT_FILE)
