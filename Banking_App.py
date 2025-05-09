@@ -2,7 +2,6 @@ import os
 import re
 import random
 from datetime import datetime
-from getpass import getpass
 import pwinput
 import hashlib
 
@@ -46,13 +45,29 @@ def save_all_lines(filename, lines):
         for line in lines:
             f.write(line + '\n')
 
+# def first_login():
+#     print("=== First Time Admin Setup ===")
+#     username = input("Enter admin username: ")
+#     password = pwinput.pwinput("Enter admin password: ")
+#     write_to_file(USER_FILE, f"{username}||admin||{hash_password(password)}")
+#     print("✅ Admin created successfully.")
+#     return username, "admin"
+
+
 def first_login():
     print("=== First Time Admin Setup ===")
     username = input("Enter admin username: ")
-    password = pwinput.pwinput("Enter admin password: ")
+
+    while True:
+        password = pwinput.pwinput("Enter admin password (At least 8 characters with uppercase, lowercase, number, symbol): ")
+        if is_valid_password(password):
+            break
+        print("❌ Invalid password. It must include uppercase, lowercase, number, and special character.")
+
     write_to_file(USER_FILE, f"{username}||admin||{hash_password(password)}")
     print("✅ Admin created successfully.")
     return username, "admin"
+
 
 def login():
     users = read_file(USER_FILE)
@@ -64,11 +79,13 @@ def login():
     password = pwinput.pwinput("Enter your Password: ")
 
     for user in users:
-        parts = user.split('||')
+        parts = user.strip().split('||')
         if len(parts) == 3:
             uname, role, passwd = parts
         elif len(parts) == 4:
             _, uname, role, passwd = parts 
+        elif len(parts) == 5:
+            _, _, uname, role, passwd = parts
         else:
             continue 
 
@@ -78,6 +95,7 @@ def login():
 
     print("❌ Invalid credentials.")
     return login()
+
 
 def is_valid_password(password):
     return (
@@ -93,7 +111,6 @@ def is_valid_nic(nic):
 
 def is_valid_phone(phone):
     return re.fullmatch(r'07\d{8}', phone)
-
 
 def create_customer():
     print("=== Create Customer Account ===")
