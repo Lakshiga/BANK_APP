@@ -294,6 +294,79 @@ def check_balance(account_number):
     else:
         print("❌ Account not found.")
 
+import pwinput
+import hashlib
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def reset_password():
+    account_number = input("Enter your account number: ")
+    current_password = pwinput.pwinput("Enter your current password: ")
+    current_password_hashed = hash_password(current_password)
+
+    # Step 1: Update ACCOUNT_FILE
+    accounts = read_file(ACCOUNT_FILE)
+    updated_accounts = []
+    account_found = False
+    user_name = None  # for updating USER_FILE
+
+    for acc in accounts:
+        parts = acc.strip().split('||')
+        if len(parts) != 4:
+            updated_accounts.append(acc.strip())
+            continue
+
+        acc_no, name, stored_password, balance = parts
+
+        if acc_no == account_number and stored_password == current_password_hashed:
+            account_found = True
+            user_name = name
+            new_password = pwinput.pwinput("Enter new password: ")
+            confirm_password = pwinput.pwinput("Confirm new password: ")
+            if new_password != confirm_password:
+                print("❌ Passwords do not match.")
+                return
+            new_password_hashed = hash_password(new_password)
+            updated_line = f"{acc_no}||{name}||{new_password_hashed}||{balance}"
+            updated_accounts.append(updated_line)
+            print("✅ Password updated successfully.")
+        else:
+            updated_accounts.append(acc.strip())
+
+    if not account_found:
+        print("❌ Incorrect account number or password.")
+        return
+
+    save_all_lines(ACCOUNT_FILE, updated_accounts)
+
+    # Step 2: Also update USER_FILE if username is found
+    if user_name:
+        users = read_file(USER_FILE)
+        updated_users = []
+
+        for user in users:
+            parts = user.strip().split('||')
+            if len(parts) == 3:
+                uname, role, passwd = parts
+                if uname == user_name:
+                    passwd = new_password_hashed
+                updated_users.append(f"{uname}||{role}||{passwd}")
+            elif len(parts) == 4:
+                _, uname, role, passwd = parts
+                if uname == user_name:
+                    passwd = new_password_hashed
+                updated_users.append(f"{account_number}||{uname}||{role}||{passwd}")
+            elif len(parts) == 5:
+                _, _, uname, role, passwd = parts
+                if uname == user_name:
+                    passwd = new_password_hashed
+                updated_users.append(f"{account_number}||--||{uname}||{role}||{passwd}")
+            else:
+                updated_users.append(user.strip())
+
+        save_all_lines(USER_FILE, updated_users)
+
 def transaction_history(account_number):
     print(f"=== Transactions for {account_number} ===")
     transactions = read_file(TRANSACTION_FILE)
@@ -421,8 +494,9 @@ def user_menu(username):
         print("3. Transfer Money")
         print("4. Check Balance")
         print("5. Transaction History")
-        print("6. Logout")
-        print("7. Exit")
+        print("6. Reset Password")
+        print("7. Logout")
+        print("8. Exit")
         choice = input("Choice: ")
         
         if choice == '1':
@@ -436,8 +510,10 @@ def user_menu(username):
         elif choice == '5':
             transaction_history(acc_no)
         elif choice == '6':
-            break 
+            reset_password()
         elif choice == '7':
+            break 
+        elif choice == '8':
             print("👋 Thank you , Exiting the application. Goodbye!")
             exit() 
         else:
