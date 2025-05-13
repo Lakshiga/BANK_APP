@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import random
 from datetime import datetime
 import pwinput
@@ -107,7 +108,8 @@ def is_valid_password(password):
     )
 
 def is_valid_nic(nic):
-    return re.fullmatch(r'\d{12}', nic)
+    """Validate NIC number format"""
+    return len(nic) >= 5
 
 def is_valid_phone(phone):
     return re.fullmatch(r'07\d{8}', phone)
@@ -116,39 +118,47 @@ def create_customer():
     print("=== Create Customer Account ===")
 
     users = read_file(USER_FILE)
-    existing_usernames = set()
-    for user in users:
-        parts = user.strip().split('||')
-        if len(parts) >= 2:
-            existing_usernames.add(parts[1])
+    existing_usernames = {user.strip().split('||')[1] for user in users if len(user.strip().split('||')) >= 2}
 
-    username = input("Enter your username: ")
-    if username in existing_usernames:
-        print("❌ Username already exists.")
-        return
+    while True:
+        username = input("Enter your username: ")
+        if username in existing_usernames:
+            print("❌ Username already exists. Try a different one.")
+        elif username.strip() == "":
+            print("❌ Username cannot be empty.")
+        else:
+            break
 
-    password = pwinput.pwinput("Set password (At least 8 characters with uppercase, lowercase, number, symbol): ")
-    if not is_valid_password(password):
-        print("❌ Invalid password. It must include uppercase, lowercase, number, and special character.")
-        return
+    while True:
+        password = pwinput.pwinput("Set password (At least 8 characters with uppercase, lowercase, number, symbol): ")
+        if not is_valid_password(password):
+            print("❌ Invalid password. It must include uppercase, lowercase, number, and special character.")
+        else:
+            break
 
-    try:
-        balance = float(input("Enter initial balance (>= 0): "))
-        if balance < 0:
-            raise ValueError
-    except ValueError:
-        print("❌ Invalid balance.")
-        return
+    while True:
+        try:
+            balance = float(input("Enter initial balance (>= 0): "))
+            if balance < 0:
+                print("❌ Balance cannot be negative.")
+            else:
+                break
+        except ValueError:
+            print("❌ Invalid number. Please enter a valid amount.")
 
-    nic = input("Enter NIC No (12 digits): ")
-    if not is_valid_nic(nic):
-        print("❌ Invalid NIC number. Must be exactly 12 digits.")
-        return
+    while True:
+        nic = input("Enter NIC No: ")
+        if not is_valid_nic(nic):
+            print("❌ Invalid NIC number. Must be more than 5 digits.")
+        else:
+            break
 
-    contact = input("Enter Contact No (10-digit, starts with 07): ")
-    if not is_valid_phone(contact):
-        print("❌ Invalid phone number. Must start with '07' and be 10 digits.")
-        return
+    while True:
+        contact = input("Enter Contact No: ")
+        if not is_valid_phone(contact):
+            print("❌ Invalid phone number. Must be 10 digits.")
+        else:
+            break
 
     account_number = generate_account_number()
     user_id = generate_user_id()
@@ -158,7 +168,10 @@ def create_customer():
     write_to_file(CUSTOMER_FILE, f"{customer_id}||{username}||{account_number}||{nic}||{contact}")
     write_to_file(USER_FILE, f"{user_id}||{account_number}||{username}||user||{hash_password(password)}")
 
-    print(f"✅ Successful Customer created with Account Number: {account_number} || User ID: {user_id} || Customer ID: {customer_id}")
+    print(f"✅ Successful Customer created!")
+    print(f"🆔 User ID: {user_id}")
+    print(f"🏦 Account Number: {account_number}")
+    print(f"👤 Customer ID: {customer_id}")
 
 def find_account(account_number):
     accounts = read_file(ACCOUNT_FILE)
@@ -172,7 +185,7 @@ def update_account(account_number, new_balance):
     accounts = read_file(ACCOUNT_FILE)
     updated = []
     for acc in accounts:
-        acc_no, uname, passwd, bal = acc.split('||')
+        acc_no, uname, passwd = acc.split('||')
         if acc_no == account_number:
             updated.append(f"{acc_no}||{uname}||{passwd}||{new_balance}")
         else:
@@ -221,12 +234,141 @@ def withdraw(account_number):
     record_transaction(account_number, "withdraw", acc[3], new_balance)
     print(f"✅ Withdrawal successful. Amount: {amount}, Your current balance is: {new_balance}.")
 
+def fund_transfer():
+    sender_acc = input("Enter your account number: ")
+    receiver_acc = input("Enter recipient account number: ")
+    amount = float(input("Enter amount to transfer: "))
+
+    accounts = read_file(ACCOUNT_FILE)
+    updated_accounts = []
+    sender_found = False
+    receiver_found = False
+    sender_balance = 0
+    receiver_balance = 0
+
+    for acc in accounts:
+        parts = acc.strip().split('||')
+        acc_no = parts[0]
+
+        try:
+            balance = float(parts[3])
+        except (IndexError, ValueError):
+            print(f"❌ Error reading balance for account {acc_no}. Skipping.")
+            updated_accounts.append(acc)
+            continue
+
+        if acc_no == sender_acc:
+            sender_found = True
+            sender_balance = balance
+            if balance < amount:
+                print("❌ Insufficient funds.")
+                return
+            balance -= amount
+            parts[3] = str(balance)
+
+        elif acc_no == receiver_acc:
+            receiver_found = True
+            receiver_balance = balance
+            balance += amount
+            parts[3] = str(balance)
+
+        updated_accounts.append('||'.join(parts))
+
+    if not sender_found:
+        print("❌ Sender account not found.")
+        return
+    if not receiver_found:
+        print("❌ Receiver account not found.")
+        return
+
+    save_all_lines(ACCOUNT_FILE, updated_accounts)
+
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    transaction_log = [
+        f"{sender_acc}||Transfer Out||{amount}||{receiver_acc}||{timestamp}||Current Balance: {sender_balance - amount}",
+        f"{receiver_acc}||Transfer In||{amount}||{sender_acc}||{timestamp}||Current Balance: {receiver_balance + amount}"
+    ]
+    
+    with open(TRANSACTION_FILE, 'a') as f:
+        for log in transaction_log:
+            f.write(log + '\n')
+
+    print("✅ Transfer successful.")
+
+
 def check_balance(account_number):
     acc = find_account(account_number)
     if acc:
         print(f"Current Balance: {acc[3]}")
     else:
         print("❌ Account not found.")
+
+def reset_password():
+    account_number = input("Enter your account number: ")
+    current_password = pwinput.pwinput("Enter your current password: ")
+    current_password_hashed = hash_password(current_password)
+
+    accounts = read_file(ACCOUNT_FILE)
+    updated_accounts = []
+    account_found = False
+    user_name = None  
+
+    for acc in accounts:
+        parts = acc.strip().split('||')
+        if len(parts) != 4:
+            updated_accounts.append(acc.strip())
+            continue
+
+        acc_no, name, stored_password, balance = parts
+
+        if acc_no == account_number and stored_password == current_password_hashed:
+            account_found = True
+            user_name = name
+            new_password = pwinput.pwinput("Enter new password: ")
+            confirm_password = pwinput.pwinput("Confirm new password: ")
+            if new_password != confirm_password:
+                print("❌ Passwords do not match.")
+                return
+            new_password_hashed = hash_password(new_password)
+            updated_line = f"{acc_no}||{name}||{new_password_hashed}||{balance}"
+            updated_accounts.append(updated_line)
+            print("✅ Password updated successfully.")
+        else:
+            updated_accounts.append(acc.strip())
+
+    if not account_found:
+        print("❌ Incorrect account number or password.")
+        return
+
+    save_all_lines(ACCOUNT_FILE, updated_accounts)
+
+   
+    if user_name:
+        users = read_file(USER_FILE)
+        updated_users = []
+
+        for user in users:
+            parts = user.strip().split('||')
+            if len(parts) == 3:
+                uname, role, passwd = parts
+                if uname == user_name:
+                    passwd = new_password_hashed
+                updated_users.append(f"{uname}||{role}||{passwd}")
+            elif len(parts) == 4:
+                _, uname, role, passwd = parts
+                if uname == user_name:
+                    passwd = new_password_hashed
+                updated_users.append(f"{account_number}||{uname}||{role}||{passwd}")
+            elif len(parts) == 5:
+                _, _, uname, role, passwd = parts
+                if uname == user_name:
+                    passwd = new_password_hashed
+                updated_users.append(f"{account_number}||--||{uname}||{role}||{passwd}")
+            else:
+                updated_users.append(user.strip())
+
+        save_all_lines(USER_FILE, updated_users)
 
 def transaction_history(account_number):
     print(f"=== Transactions for {account_number} ===")
@@ -311,22 +453,24 @@ def admin_menu():
         print("1. Create Customer Account")
         print("2. Deposit")
         print("3. Withdraw")
-        print("4. Check Balance")
-        print("5. Transaction History")
-        print("6. Manage Accounts")
-        print("7. View All Accounts")
-        print("8. Search Details")
-        print("9. Logout")
+        print("4. Money Transfer")
+        print("5. Check Balance")
+        print("6. Transaction History")
+        print("7. Manage Accounts")
+        print("8. View All Accounts")
+        print("9. Search Details")
+        print("10. Logout")
         choice = input("Choice: ")
         if choice == '1': create_customer()
         elif choice == '2': deposit(input("Enter account number: "))
         elif choice == '3': withdraw(input("Enter account number: "))
-        elif choice == '4': check_balance(input("Enter account number: "))
-        elif choice == '5': transaction_history(input("Enter account number: "))
-        elif choice == '6': manage_accounts()
-        elif choice == '7': view_all_accounts()
-        elif choice == '8': search_details()
-        elif choice == '9': break
+        elif choice == '4': fund_transfer()
+        elif choice == '5': check_balance(input("Enter account number: "))
+        elif choice == '6': transaction_history(input("Enter account number: "))
+        elif choice == '7': manage_accounts()
+        elif choice == '8': view_all_accounts()
+        elif choice == '9': search_details()
+        elif choice == '10': break
         else: print("❌ Invalid option.")
 
 def user_menu(username):
@@ -345,10 +489,12 @@ def user_menu(username):
         print("\n=== User Menu ===")
         print("1. Deposit")
         print("2. Withdraw")
-        print("3. Check Balance")
-        print("4. Transaction History")
-        print("5. Logout")
-        print("6. Exit")
+        print("3. Money Transfer")
+        print("4. Check Balance")
+        print("5. Transaction History")
+        print("6. Reset Password")
+        print("7. Logout")
+        print("8. Exit")
         choice = input("Choice: ")
         
         if choice == '1':
@@ -358,10 +504,14 @@ def user_menu(username):
         elif choice == '3':
             check_balance(acc_no)
         elif choice == '4':
-            transaction_history(acc_no)
+            fund_transfer()
         elif choice == '5':
-            break 
+            transaction_history(acc_no)
         elif choice == '6':
+            reset_password()
+        elif choice == '7':
+            break 
+        elif choice == '8':
             print("👋 Thank you , Exiting the application. Goodbye!")
             exit() 
         else:
