@@ -12,7 +12,7 @@ USER_FILE = "Users.txt"
 TRANSACTION_FILE = "Transactions.txt"
 
 def generate_account_number():
-    return str(random.randint(10000, 99999))
+    return str(random.randint(1000, 9999))
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -46,6 +46,10 @@ def save_all_lines(filename, lines):
         for line in lines:
             f.write(line + '\n')
 
+def show_current_date():
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    print(f"Current Date: {current_date}")
+
 # def first_login():
 #     print("=== First Time Admin Setup ===")
 #     username = input("Enter admin username: ")
@@ -53,6 +57,50 @@ def save_all_lines(filename, lines):
 #     write_to_file(USER_FILE, f"{username}||admin||{hash_password(password)}")
 #     print("✅ Admin created successfully.")
 #     return username, "admin"
+
+def load_transactions():
+    transactions = {}
+    lines = read_file(TRANSACTION_FILE)
+
+    for line in lines:
+        parts = line.strip().split("||")
+        if len(parts) >= 2:
+            account_number = parts[0]
+            if account_number not in transactions:
+                transactions[account_number] = []
+            transactions[account_number].append(parts)  # Store full transaction parts
+
+    return transactions
+
+def count_transactions():
+    acc = input("🔎 Enter Account Number: ").strip()
+    transactions = load_transactions()
+
+    if acc not in transactions:
+        print("❌ Account number not found in transactions.")
+    else:
+        count = len(transactions[acc])
+        print(f"🔁 Total Transactions for {acc}: {count}")
+
+def transaction_type_summary(account_number, transactions):
+    if account_number not in transactions or len(transactions[account_number]) == 0:
+        print(f"⚠️ No transactions found for account {account_number}.")
+        return
+
+    deposits = 0
+    withdrawals = 0
+
+    for trans in transactions[account_number]:
+        description = trans[2].lower() 
+
+        if description.startswith("deposit") or description.startswith("deposited"):
+            deposits += 1
+        elif description.startswith("withdraw") or description.startswith("withdrew"):
+            withdrawals += 1
+
+    print(f"📊 Transaction Type Summary for account {account_number}:")
+    print(f"   Deposits: {deposits}")
+    print(f"   Withdrawals: {withdrawals}")
 
 
 def first_login():
@@ -67,6 +115,7 @@ def first_login():
 
     write_to_file(USER_FILE, f"{username}||admin||{hash_password(password)}")
     print("✅ Admin created successfully.")
+    print(f"✅ Welcome to Our bank {username} As a Admin ")
     return username, "admin"
 
 
@@ -91,7 +140,7 @@ def login():
             continue 
 
         if uname == username and passwd == hash_password(password):
-            print("✅ Login successful !")
+            print(f"✅ {username} Login successful !")
             return uname, role
 
     print("❌ Invalid credentials.")
@@ -121,7 +170,7 @@ def create_customer():
     existing_usernames = {user.strip().split('||')[1] for user in users if len(user.strip().split('||')) >= 2}
 
     while True:
-        username = input("Enter your username: ")
+        username = input("Enter your username: ").strip().title()
         if username in existing_usernames:
             print("❌ Username already exists. Try a different one.")
         elif username.strip() == "":
@@ -167,7 +216,7 @@ def create_customer():
     write_to_file(ACCOUNT_FILE, f"{account_number}||{username}||{hash_password(password)}||{balance}")
     write_to_file(CUSTOMER_FILE, f"{customer_id}||{username}||{account_number}||{nic}||{contact}")
     write_to_file(USER_FILE, f"{user_id}||{account_number}||{username}||user||{hash_password(password)}")
-
+    print(f"😊 Welcome To Our Bank {username} As a Customer")
     print(f"✅ Successful Customer created!")
     print(f"🆔 User ID: {user_id}")
     print(f"🏦 Account Number: {account_number}")
@@ -181,15 +230,32 @@ def find_account(account_number):
             return acc_no, uname, passwd, float(bal)
     return None  
 
+def show_uppercase_customer_names():
+    print("=== Customer Names in Title Case ===")
+    try:
+        with open(CUSTOMER_FILE, 'r') as file:
+            for line in file:
+                parts = line.strip().split("||")
+                if len(parts) >= 2:
+                    username = parts[1]
+                    print(username.title())
+    except FileNotFoundError:
+        print("❌ Customer file not found.")
+
+
 def update_account(account_number, new_balance):
     accounts = read_file(ACCOUNT_FILE)
     updated = []
     for acc in accounts:
-        acc_no, uname, passwd = acc.split('||')
-        if acc_no == account_number:
-            updated.append(f"{acc_no}||{uname}||{passwd}||{new_balance}")
+        parts = acc.strip().split('||')
+        if len(parts) >= 4:
+            acc_no, uname, passwd = parts[0], parts[1], parts[2]
+            if acc_no == account_number:
+                updated.append(f"{acc_no}||{uname}||{passwd}||{new_balance}")
+            else:
+                updated.append(acc.strip())
         else:
-            updated.append(acc)
+            updated.append(acc.strip())  # Keep original if format unexpected
     save_all_lines(ACCOUNT_FILE, updated)
 
 def record_transaction(account_number, action, last_bal, new_bal):
@@ -371,12 +437,35 @@ def reset_password():
         save_all_lines(USER_FILE, updated_users)
 
 def transaction_history(account_number):
-    print(f"=== Transactions for {account_number} ===")
+    print(f"=== Last 5 Transactions for {account_number} ===")
     transactions = read_file(TRANSACTION_FILE)
+    recent_transactions = []
+
     for tx in transactions:
-        acc_no, dt, act, last_b, cur_b = tx.split('||')
-        if acc_no == account_number:
+        parts = tx.strip().split('||')
+        
+        
+        if len(parts) == 5 and parts[0] == account_number:
+            recent_transactions.append(tx.strip())
+
+        
+        elif len(parts) == 6 and parts[0] == account_number:
+            recent_transactions.append(tx.strip())
+
+    if not recent_transactions:
+        print("❌ No transactions found.")
+        return
+
+    
+    for tx in recent_transactions[-5:]:
+        parts = tx.split("||")
+        if len(parts) == 5:
+            acc_no, dt, act, last_b, cur_b = parts
             print(f"{dt} || {act} || Last: {last_b} || Current: {cur_b}")
+        elif len(parts) == 6:
+            acc_no, action, amount, target_acc, dt, balance = parts
+            print(f"{dt} || {action} {amount} with {target_acc} || Balance: {balance}")
+
 
 def search_details():
     print("Search by typing:")
@@ -419,6 +508,17 @@ def view_all_accounts():
     for acc in accounts:
         print(acc)
 
+
+def count_customers():
+    try:
+        with open(CUSTOMER_FILE, 'r') as file:
+            customers = file.readlines()
+            total = len(customers)
+            print(f"👥 Total Customers: {total}")
+    except FileNotFoundError:
+        print("❌ Customer file not found.")
+
+
 def manage_accounts():
     print("1. Delete Account\n2. Update Account Username")
     choice = input("Choice: ")
@@ -459,7 +559,12 @@ def admin_menu():
         print("7. Manage Accounts")
         print("8. View All Accounts")
         print("9. Search Details")
-        print("10. Logout")
+        print("10. Show Current date")
+        print("11. Show Customer Names in Title Case")
+        print("12. Count Total Customers")
+        print("13. Count Transactions for an Account")
+        print("14. Transaction Type Summary")
+        print("15. Logout")
         choice = input("Choice: ")
         if choice == '1': create_customer()
         elif choice == '2': deposit(input("Enter account number: "))
@@ -470,7 +575,15 @@ def admin_menu():
         elif choice == '7': manage_accounts()
         elif choice == '8': view_all_accounts()
         elif choice == '9': search_details()
-        elif choice == '10': break
+        elif choice == '10': show_current_date()
+        elif choice == '11': show_uppercase_customer_names()
+        elif choice == '12': count_customers()
+        elif choice == '13': count_transactions()
+        elif choice == '14':
+            acc = input("🔎 Enter Account Number: ")
+            transactions = load_transactions()  
+            transaction_type_summary(acc, transactions)
+        elif choice == '15': break
         else: print("❌ Invalid option.")
 
 def user_menu(username):
